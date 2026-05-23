@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Connexion{% endblock %}
+{% block extra_styles %}
+<style>
+body{background:linear-gradient(135deg,#0a3d2e 0%,#1a6b4a 60%,#2a9e6e 100%);display:flex;align-items:center;justify-content:center;min-height:100vh;padding:16px}
+.login-box{background:#fff;border-radius:20px;padding:40px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.login-logo{font-family:'DM Serif Display',serif;font-size:24px;color:#0a3d2e;text-align:center;margin-bottom:4px}
+.login-sub{font-size:11px;color:#888;letter-spacing:2px;text-transform:uppercase;text-align:center;margin-bottom:24px}
+.tabs{display:flex;gap:4px;background:#fafafa;border:1px solid #e0e0e0;border-radius:10px;padding:4px;margin-bottom:20px}
+.tab{flex:1;padding:9px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;color:#4a4a4a;border:none;background:none;font-family:'DM Sans',sans-serif;transition:all .15s}
+.tab.active{background:#fff;color:#0a3d2e;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+.login-btn{width:100%;padding:13px;background:#0a3d2e;color:#fff;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;transition:background .15s}
+.login-btn:hover{background:#062a1f}
+.hint{font-size:11px;color:#888;margin-top:12px;background:#fafafa;padding:10px 12px;border-radius:8px;line-height:1.7}
+</style>
+{% endblock %}
+{% block body %}
+<div class="login-box">
+  <div class="login-logo">Lycée Malick Sy</div>
+  <div class="login-sub">GestBulletin · Thiès</div>
+  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('staff',this)">👨‍💼 Personnel</button>
+    <button class="tab" onclick="switchTab('eleve',this)">👨‍🎓 Élève</button>
+  </div>
+  <div id="tab-staff">
+    <div class="fg"><label>Identifiant</label><input type="text" id="lu" placeholder="ex: directeur"></div>
+    <div class="fg"><label>Mot de passe</label><input type="password" id="lp" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div id="lerr" style="display:none" class="alert alert-error">❌ Identifiant ou mot de passe incorrect.</div>
+    <button class="login-btn" onclick="doLogin()">Se connecter</button>
+    <div class="hint"><strong>Comptes par défaut :</strong><br>directeur / admin123 · censeur / censeur123<br>enseignant / prof123 · secretaire / secr123</div>
+  </div>
+  <div id="tab-eleve" style="display:none">
+    <div class="fg"><label>Matricule</label><input type="text" id="lmat" placeholder="ex: LMS-2024-001"></div>
+    <div class="fg"><label>Mot de passe (défaut: votre matricule)</label><input type="password" id="lep" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div id="lerr2" style="display:none" class="alert alert-error">❌ Matricule ou mot de passe incorrect.</div>
+    <button class="login-btn" onclick="doLogin()">Accès élève</button>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+let mode='staff';
+function switchTab(t,btn){
+  mode=t;
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-staff').style.display=t==='staff'?'block':'none';
+  document.getElementById('tab-eleve').style.display=t==='eleve'?'block':'none';
+}
+async function doLogin(){
+  const login=mode==='staff'?document.getElementById('lu').value.trim():document.getElementById('lmat').value.trim();
+  const pwd=mode==='staff'?document.getElementById('lp').value:document.getElementById('lep').value;
+  const errEl=document.getElementById(mode==='staff'?'lerr':'lerr2');
+  errEl.style.display='none';
+  const r=await api('/login','POST',{login,password:pwd});
+  if(r.succes){window.location.href='/';}
+  else{errEl.style.display='block';}
+}
+</script>
+{% endblock %}

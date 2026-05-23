@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GestBulletin — Lycée Malick Sy</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--gd:#0a3d2e;--gm:#1a6b4a;--gl:#2a9e6e;--gp:#d4efe5;--gf:#f0faf6;--gold:#c9922a;--goldp:#fef5e4;--red:#c0392b;--redp:#fdecea;--ink:#1a1a1a;--inkm:#4a4a4a;--inkl:#888;--bdr:#e0e0e0;--surf:#fafafa;--wh:#fff;--sh:0 2px 12px rgba(0,0,0,.08);--shl:0 8px 32px rgba(0,0,0,.14)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:#f4f4f0;color:var(--ink);font-size:14px}
+.layout{display:flex;min-height:100vh}
+/* SIDEBAR */
+.sidebar{width:240px;background:var(--gd);display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;left:0;height:100%;z-index:200;overflow-y:auto;transition:transform .3s}
+.sl{padding:22px 20px 18px;border-bottom:1px solid rgba(255,255,255,.1)}
+.sn{font-family:'DM Serif Display',serif;font-size:15px;color:#fff;line-height:1.3}
+.sa{font-size:10px;color:rgba(255,255,255,.45);letter-spacing:2px;text-transform:uppercase;margin-top:4px}
+.snav{flex:1;padding:12px 0}
+.ss{font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.35);padding:10px 20px 5px}
+.ni{display:flex;align-items:center;gap:10px;padding:9px 20px;color:rgba(255,255,255,.7);cursor:pointer;font-size:13px;transition:all .15s;border-left:3px solid transparent;text-decoration:none}
+.ni:hover{background:rgba(255,255,255,.08);color:#fff}
+.ni.active{background:rgba(255,255,255,.12);color:#fff;border-left-color:var(--gl);font-weight:500}
+.sf{padding:14px 20px;border-top:1px solid rgba(255,255,255,.1)}
+.su{display:flex;align-items:center;gap:10px}
+.ua{width:34px;height:34px;border-radius:50%;background:var(--gl);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0}
+.un{font-size:13px;color:#fff;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ur{font-size:10px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1px}
+.lb{background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:16px;padding:4px}
+.lb:hover{color:#fff}
+/* MAIN */
+.main{margin-left:240px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{background:var(--wh);border-bottom:1px solid var(--bdr);padding:0 24px;height:58px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.ttl{font-size:16px;font-weight:600}
+.tright{display:flex;align-items:center;gap:10px}
+.ba{background:var(--gf);color:var(--gm);border:1px solid var(--gp);font-size:12px;font-weight:600;padding:3px 11px;border-radius:20px}
+.rb{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.5px}
+.rb-dir{background:#e8edf5;color:#1a3a6b}.rb-cen{background:var(--gp);color:var(--gd)}.rb-ens{background:var(--goldp);color:#7a5000}.rb-sec{background:#f5e8f5;color:#6b1a6b}.rb-elv{background:#e8f0fe;color:#1a56db}
+.content{padding:24px;flex:1}
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:none;font-family:'DM Sans',sans-serif;transition:all .15s;text-decoration:none;white-space:nowrap}
+.btn-primary{background:var(--gm);color:#fff}.btn-primary:hover{background:var(--gd)}
+.btn-secondary{background:var(--surf);color:var(--ink);border:1px solid var(--bdr)}.btn-secondary:hover{background:var(--bdr)}
+.btn-danger{background:var(--redp);color:var(--red);border:1px solid #f5c6c3}
+.btn-gold{background:var(--goldp);color:var(--gold);border:1px solid #f0d59a}
+.btn-sm{padding:5px 10px;font-size:12px;border-radius:6px}
+/* CARDS */
+.card{background:var(--wh);border-radius:12px;border:1px solid var(--bdr);box-shadow:var(--sh);margin-bottom:18px}
+.ch{padding:14px 18px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.ct{font-size:14px;font-weight:600}
+.cb{padding:18px}
+/* FORMS */
+.fg{display:flex;flex-direction:column;gap:5px}
+.fg label{font-size:12px;font-weight:500;color:var(--inkm)}
+.fg input,.fg select,.fg textarea{padding:10px 13px;border:1.5px solid var(--bdr);border-radius:8px;font-size:14px;font-family:'DM Sans',sans-serif;color:var(--ink);background:var(--wh);outline:none;transition:border-color .15s}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--gl);box-shadow:0 0 0 3px rgba(42,158,110,.1)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+/* TABLE */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{padding:9px 13px;text-align:left;font-size:11px;font-weight:600;color:var(--inkl);letter-spacing:.5px;text-transform:uppercase;background:var(--surf);border-bottom:1px solid var(--bdr)}
+tbody td{padding:11px 13px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+tbody tr:hover{background:var(--gf)}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.b-j{background:#e8f5e9;color:#2e7d32}.b-ij{background:var(--redp);color:var(--red)}.b-at{background:#fff3e0;color:#e65100}
+.b-ok{background:var(--gp);color:var(--gd)}.b-no{background:var(--redp);color:var(--red)}
+.m-tb{background:var(--gp);color:var(--gd)}.m-bi{background:#e3f2fd;color:#1565c0}.m-ab{background:#e8f5e9;color:#2e7d32}
+.m-pa{background:#fffde7;color:#f57f17}.m-in{background:#fff3e0;color:#e65100}.m-ei{background:var(--redp);color:var(--red)}
+/* MODAL */
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;padding:16px}
+.mo.open{display:flex}
+.modal{background:var(--wh);border-radius:16px;box-shadow:var(--shl);width:100%;max-width:640px;max-height:92vh;overflow-y:auto}
+.mh{padding:18px 22px 14px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between}
+.mt{font-size:15px;font-weight:600}
+.mc{cursor:pointer;font-size:20px;color:var(--inkl);background:none;border:none;line-height:1}
+.mb{padding:22px}
+.mf{padding:14px 22px;border-top:1px solid var(--bdr);display:flex;justify-content:flex-end;gap:10px}
+/* STAT */
+.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.sc{background:var(--wh);border-radius:12px;padding:18px;border:1px solid var(--bdr);box-shadow:var(--sh)}
+.sl2{font-size:11.5px;color:var(--inkl);font-weight:500;letter-spacing:.5px;margin-bottom:7px}
+.sv{font-size:26px;font-weight:600}
+.ssub{font-size:11.5px;color:var(--inkl);margin-top:3px}
+.si{float:right;font-size:26px;opacity:.15;margin-top:-4px}
+/* ES */
+.es{text-align:center;padding:44px 20px;color:var(--inkl)}
+.es-i{font-size:44px;margin-bottom:10px;opacity:.3}
+/* MENU HAMBURGER MOBILE */
+.menu-btn{display:none;background:none;border:none;font-size:22px;cursor:pointer;padding:6px}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:199}
+/* ALERT */
+.alert{padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:16px}
+.a-err{background:var(--redp);color:var(--red);border:1px solid #f5c6c3}
+.a-ok{background:var(--gf);color:var(--gd);border:1px solid var(--gp)}
+/* NOTE GRID */
+.ng{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.nc{background:var(--surf);border:1px solid var(--bdr);border-radius:8px;padding:11px}
+.nm{font-size:13px;font-weight:600;margin-bottom:7px}
+.ni2{display:flex;gap:7px;align-items:center}
+.ni2 input{width:62px;padding:6px 8px;text-align:center;border:1px solid var(--bdr);border-radius:6px;font-family:'DM Sans',sans-serif;outline:none}
+.ni2 input:focus{border-color:var(--gl)}
+/* BULLETIN */
+.bp{background:#fff;border:1px solid #ccc;border-radius:4px;padding:24px}
+.be{text-align:center;border-bottom:3px solid #0a3d2e;padding-bottom:12px;margin-bottom:12px}
+.bsch{font-family:'DM Serif Display',serif;font-size:20px;color:#0a3d2e;font-weight:bold}
+.bsub{font-size:11px;color:#555;margin-top:3px}
+.btit{font-size:13px;font-weight:700;margin-top:8px;letter-spacing:1px;text-transform:uppercase;color:#0a3d2e}
+.binf{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:#f8f8f8;padding:10px;border-radius:6px;margin-bottom:12px;font-size:12px}
+.bt{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:12px}
+.bt th{background:#0a3d2e;color:#fff;padding:6px 9px;text-align:left;font-size:11px}
+.bt td{padding:5px 9px;border-bottom:1px solid #eee}
+.bt tr:nth-child(even) td{background:#f9f9f9}
+.bt .gh td{background:#e8f4ef;font-weight:600;color:#0a3d2e;font-size:11px;text-transform:uppercase}
+.nl{color:#c0392b;font-weight:700}.no{color:#27ae60;font-weight:600}
+.bsyn{background:#0a3d2e;color:#fff;border-radius:8px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.bml{font-size:11px;opacity:.7}.bmv{font-size:20px;font-weight:700}
+.bmen{font-size:12px;font-weight:600;background:rgba(255,255,255,.2);padding:3px 10px;border-radius:20px}
+.bapp{background:#fffbf0;border:1px solid #f0d59a;border-radius:6px;padding:8px 12px;font-size:11.5px;color:#555;margin-bottom:10px}
+.babs2{background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:8px 12px;font-size:11.5px;color:#991b1b;margin-bottom:10px}
+.bsign{display:flex;justify-content:space-between;margin-top:18px}
+.bsb{text-align:center}
+.bsl{font-size:11px;color:#555}
+.bsnom{font-size:11px;font-weight:600;color:#333;margin-top:3px}
+.bsline{border-top:1px solid #333;width:110px;margin:24px auto 5px}
+/* BILLET */
+.billet{background:#fff;border:2px solid #1a6b4a;border-radius:8px;padding:20px 24px;max-width:480px;font-size:13px;color:#111}
+.bil-ent{text-align:center;border-bottom:2px solid #1a6b4a;padding-bottom:10px;margin-bottom:12px}
+.bil-title{font-family:'DM Serif Display',serif;font-size:17px;color:#0a3d2e}
+.bil-type{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#1a6b4a;margin-top:4px}
+.bil-num{font-size:10px;color:#888;margin-top:2px}
+.bil-row{display:flex;gap:8px;font-size:12.5px;margin-bottom:6px}
+.bl{font-weight:600;color:#555;min-width:110px;flex-shrink:0}
+.bv{color:#111;border-bottom:1px solid #ccc;flex:1;padding-bottom:2px}
+.bil-sign{display:flex;justify-content:space-between;margin-top:14px;padding-top:10px;border-top:1px solid #ddd}
+.bil-sb{text-align:center}
+.bil-sline{border-top:1px solid #333;width:100px;margin:18px auto 5px}
+.bil-slbl{font-size:10px;color:#666}
+@media print{.sidebar,.topbar,.btn,.mo{display:none!important}.main{margin-left:0!important}.bp,.billet{box-shadow:none;border:none}}
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  .overlay.open{display:block}
+  .main{margin-left:0}
+  .menu-btn{display:block}
+  .sg{grid-template-columns:1fr 1fr}
+  .g2,.g3,.ng{grid-template-columns:1fr}
+  .content{padding:16px}
+  .binf,.bsign{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sl">
+      <div class="sn">Lycée Malick Sy<br>Thiès</div>
+      <div class="sa">GestBulletin v2</div>
+    </div>
+    <nav class="snav" id="snav">
+      <!-- Injecté par JS selon le rôle -->
+    </nav>
+    <div class="sf">
+      <div class="su">
+        <div class="ua" id="uav">?</div>
+        <div style="flex:1;min-width:0">
+          <div class="un" id="unom">—</div>
+          <div class="ur" id="urol">—</div>
+        </div>
+        <a href="/logout" class="lb" title="Déconnexion">⏻</a>
+      </div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="menu-btn" onclick="openSidebar()">☰</button>
+        <div class="ttl" id="ttl">GestBulletin</div>
+      </div>
+      <div class="tright">
+        <span class="ba" id="tann">2024–2025</span>
+        <span class="rb" id="trol">—</span>
+      </div>
+    </div>
+    <div class="content" id="main-content">
+      <div class="es"><div class="es-i">⏳</div><div>Chargement…</div></div>
+    </div>
+  </main>
+</div>
+
+<div id="toast-box"></div>
+
+<script>
+// ── CONFIG ──
+const USER = {{ user_json|safe }};
+const ROLE_LABELS = {directeur:'Directeur',censeur:'Censeur',enseignant:'Enseignant',secretaire:'Secrétaire',eleve:'Élève'};
+const ROLE_CLS = {directeur:'rb-dir',censeur:'rb-cen',enseignant:'rb-ens',secretaire:'rb-sec',eleve:'rb-elv'};
+const ACCES = {
+  directeur:['dashboard','eleves','classes','matieres','notes','bulletins','absences','billets','demandes','personnel','config'],
+  censeur:['dashboard','eleves','classes','notes','bulletins','absences','billets','demandes'],
+  enseignant:['notes','absences'],
+  secretaire:['dashboard','eleves','classes'],
+  eleve:['pnotes','pabs','pbulletin','pdemande']
+};
+const PAGES = {
+  dashboard:{t:'Tableau de bord',url:'/dashboard'},
+  eleves:{t:'Élèves',url:'/eleves'},
+  classes:{t:'Classes',url:'/classes'},
+  matieres:{t:'Matières',url:'/matieres'},
+  notes:{t:'Saisie des notes',url:'/notes'},
+  bulletins:{t:'Bulletins',url:'/bulletins'},
+  absences:{t:'Absences',url:'/absences'},
+  billets:{t:'Billets & Autorisations',url:'/billets'},
+  demandes:{t:'Demandes élèves',url:'/demandes'},
+  personnel:{t:'Personnel',url:'/personnel'},
+  config:{t:'Configuration',url:'/config'},
+  pnotes:{t:'Mes notes',url:'/mes-notes'},
+  pabs:{t:'Mes absences',url:'/mes-absences'},
+  pbulletin:{t:'Mon bulletin',url:'/mon-bulletin'},
+  pdemande:{t:'Faire une demande',url:'/ma-demande'}
+};
+
+// ── INIT ──
+document.getElementById('unom').textContent = USER.nom;
+document.getElementById('urol').textContent = ROLE_LABELS[USER.role] || USER.role;
+document.getElementById('uav').textContent = USER.nom.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+document.getElementById('trol').textContent = ROLE_LABELS[USER.role];
+document.getElementById('trol').className = 'rb ' + (ROLE_CLS[USER.role]||'');
+
+// ── NAV ──
+function buildNav(){
+  const nav = document.getElementById('snav');
+  const acces = ACCES[USER.role] || [];
+  const curPage = document.body.dataset.page;
+  const isEleve = USER.role === 'eleve';
+  let html = '';
+  if(!isEleve){
+    html += '<div class="ss">Principal</div>';
+    ['dashboard','eleves','classes','matieres'].forEach(p => {
+      if(acces.includes(p)) html += navItem(p, curPage);
+    });
+    if(acces.includes('notes')||acces.includes('bulletins')){
+      html += '<div class="ss">Évaluations</div>';
+      ['notes','bulletins'].forEach(p => { if(acces.includes(p)) html += navItem(p,curPage); });
+    }
+    if(acces.includes('absences')||acces.includes('billets')||acces.includes('demandes')){
+      html += '<div class="ss">Vie scolaire</div>';
+      ['absences','billets','demandes'].forEach(p => { if(acces.includes(p)) html += navItem(p,curPage); });
+    }
+    if(acces.includes('personnel')||acces.includes('config')){
+      html += '<div class="ss">Administration</div>';
+      ['personnel','config'].forEach(p => { if(acces.includes(p)) html += navItem(p,curPage); });
+    }
+  } else {
+    html += '<div class="ss">Mon espace</div>';
+    ['pnotes','pabs','pbulletin','pdemande'].forEach(p => html += navItem(p,curPage));
+  }
+  nav.innerHTML = html;
+}
+const NAV_ICONS = {dashboard:'📊',eleves:'👨‍🎓',classes:'🏫',matieres:'📚',notes:'✏️',bulletins:'📄',absences:'📋',billets:'🎫',demandes:'📩',personnel:'👥',config:'⚙️',pnotes:'📊',pabs:'📋',pbulletin:'📄',pdemande:'✍️'};
+function navItem(p, cur){
+  const pg = PAGES[p];
+  return `<a href="${pg.url}" class="ni${cur===p?' active':''}">${NAV_ICONS[p]||'•'} ${pg.t}</a>`;
+}
+buildNav();
+
+// ── MOBILE SIDEBAR ──
+function openSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('overlay').classList.add('open');}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('overlay').classList.remove('open');}
+
+// ── UTILS ──
+function toast(msg, type='success'){
+  const t = document.createElement('div');
+  t.style.cssText = 'position:fixed;bottom:22px;right:22px;padding:11px 18px;border-radius:10px;font-size:13px;font-weight:500;z-index:9999;box-shadow:var(--shl);animation:slideIn .3s ease;max-width:90vw';
+  t.style.background = type==='error'?'#c0392b':'#0a3d2e';
+  t.style.color = '#fff';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 3000);
+}
+async function api(url, method='GET', data=null){
+  const opts = {method, headers:{'Content-Type':'application/json'}};
+  if(data) opts.body = JSON.stringify(data);
+  const r = await fetch(url, opts);
+  const json = await r.json();
+  if(!r.ok && json.erreur) throw new Error(json.erreur);
+  return json;
+}
+function cm(id){document.getElementById(id).classList.remove('open');}
+function om(id){document.getElementById(id).classList.add('open');}
+function fd(d){if(!d)return'—';return d;}
+function getMen(m){
+  if(m===null||m===undefined)return{l:'—',c:''};
+  if(m>=16)return{l:'Très Bien',c:'m-tb'};if(m>=14)return{l:'Bien',c:'m-bi'};
+  if(m>=12)return{l:'Assez Bien',c:'m-ab'};if(m>=10)return{l:'Passable',c:'m-pa'};
+  if(m>=8)return{l:'Insuffisant',c:'m-in'};return{l:'Élim. Impossible',c:'m-ei'};
+}
+function confirm2(msg){return confirm(msg);}
+</script>
+</body>
+</html>

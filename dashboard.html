@@ -1,0 +1,49 @@
+{% extends "layout.html" %}
+{% block body %}
+{{ super() }}
+<script>
+document.body.dataset.page = 'dashboard';
+document.getElementById('ttl').textContent = 'Tableau de bord';
+fetch('/api/config').then(r=>r.json()).then(c=>{document.getElementById('tann').textContent=c.annee||'2024–2025';});
+</script>
+<div id="main-content" style="padding:24px">
+  <div class="sg">
+    <div class="sc"><span class="si">👨‍🎓</span><div class="sl2">Élèves inscrits</div><div class="sv">{{ nb_eleves }}</div><div class="ssub">Toutes classes</div></div>
+    <div class="sc"><span class="si">🏫</span><div class="sl2">Classes actives</div><div class="sv">{{ nb_classes }}</div></div>
+    <div class="sc"><span class="si">⚠️</span><div class="sl2">Absences ce mois</div><div class="sv">{{ abs_mois }}</div><div class="ssub">Dont <strong>{{ abs_ij }}</strong> injustifiées</div></div>
+    <div class="sc"><span class="si">📩</span><div class="sl2">Demandes en attente</div><div class="sv">{{ dem_attente }}</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:18px;margin-bottom:18px">
+    <div class="card"><div class="ch"><div class="ct">Palmarès — Top 5 élèves (T1)</div></div>
+      <div class="cb">
+        {% if palmares %}
+          {% for item in palmares %}
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0">
+            <span style="font-size:18px">{{ ['🥇','🥈','🥉','4.','5.'][loop.index0] }}</span>
+            <span style="flex:1;margin:0 10px;font-size:13px;font-weight:600">{{ item.eleve.nom }} {{ item.eleve.prenom }}<br><span style="font-size:11px;font-weight:400;color:var(--inkl)">{{ item.classe.nom if item.classe else '—' }}</span></span>
+            <span style="font-size:15px;font-weight:700;color:var(--gd)">{{ '%.2f'|format(item.moy) }}/20</span>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="es"><div class="es-i">🏆</div><div>Saisissez des notes pour voir le palmarès</div></div>
+        {% endif %}
+      </div>
+    </div>
+    <div class="card"><div class="ch"><div class="ct">Accès rapides</div></div>
+      <div class="cb" style="display:flex;flex-direction:column;gap:10px">
+        <a href="/eleves" class="btn btn-primary">👨‍🎓 Gérer les élèves</a>
+        <a href="/notes" class="btn btn-secondary">✏️ Saisir des notes</a>
+        <a href="/absences" class="btn btn-secondary">📋 Enregistrer absences</a>
+        <a href="/billets" class="btn btn-gold">🎫 Générer un billet</a>
+        <a href="/demandes" class="btn btn-secondary">📩 Traiter les demandes</a>
+        <a href="/bulletins" class="btn btn-secondary">📄 Générer bulletins</a>
+      </div>
+    </div>
+  </div>
+  <div class="card"><div class="ch"><div class="ct">Infos de sécurité</div></div>
+    <div class="cb" style="font-size:13px;color:var(--gd);background:var(--gf);border-radius:8px;padding:14px;line-height:1.8">
+      ✅ Mots de passe chiffrés (bcrypt) &nbsp;·&nbsp; ✅ Sessions sécurisées &nbsp;·&nbsp; ✅ Accès par rôle &nbsp;·&nbsp; ✅ HTTPS automatique &nbsp;·&nbsp; ✅ Base de données PostgreSQL
+    </div>
+  </div>
+</div>
+{% endblock %}

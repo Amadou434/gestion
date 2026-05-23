@@ -1,0 +1,549 @@
+{% extends "layout.html" %}
+{% block body %}
+{{ super() }}
+<script>
+document.body.dataset.page = '{{ page }}';
+
+// ════════════════ PAGE ROUTER ════════════════
+const PAGE = '{{ page }}';
+const ttlMap = {eleves:'Élèves',classes:'Classes',matieres:'Matières',notes:'Saisie des notes',bulletins:'Bulletins',absences:'Absences',billets:'Billets & Autorisations',demandes:'Demandes élèves',personnel:'Personnel',config:'Configuration'};
+document.getElementById('ttl').textContent = ttlMap[PAGE] || 'GestBulletin';
+
+window.addEventListener('DOMContentLoaded', () => {
+  loadPage(PAGE);
+  fetch('/api/config').then(r=>r.json()).then(c=>{
+    document.getElementById('tann').textContent = c.annee || '2024–2025';
+  });
+});
+
+async function loadPage(p){
+  const c = document.getElementById('main-content');
+  if(p==='eleves') await pageEleves(c);
+  else if(p==='classes') await pageClasses(c);
+  else if(p==='matieres') await pageMatieres(c);
+  else if(p==='notes') await pageNotes(c);
+  else if(p==='bulletins') await pageBulletins(c);
+  else if(p==='absences') await pageAbsences(c);
+  else if(p==='billets') pageBillets(c);
+  else if(p==='demandes') await pageDemandes(c);
+  else if(p==='personnel') await pagePersonnel(c);
+  else if(p==='config') await pageConfig(c);
+}
+
+// ════════════════ ÉLÈVES ════════════════
+async function pageEleves(c){
+  const classes = await api('/api/classes');
+  c.innerHTML = `
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <input type="text" id="sch" placeholder="🔍 Rechercher…" style="flex:1;min-width:180px;padding:9px 13px;border:1.5px solid var(--bdr);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none" oninput="filterElv()">
+      <select id="flt-cl" onchange="filterElv()" style="padding:9px 13px;border:1.5px solid var(--bdr);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none">
+        <option value="">Toutes les classes</option>
+        ${classes.map(cl=>`<option value="${cl.id}">${cl.nom}</option>`).join('')}
+      </select>
+    </div>
+    <div class="card">
+      <div class="ch"><div class="ct">Liste des élèves</div><button class="btn btn-primary btn-sm" onclick="openAddElv()">+ Nouvel élève</button></div>
+      <div class="cb" style="padding:0"><div class="tw">
+        <table><thead><tr><th>#</th><th>Nom & Prénom</th><th>Sexe</th><th>Classe</th><th>Matricule</th><th>Absences</th><th>Actions</th></tr></thead>
+        <tbody id="elv-tb"><tr><td colspan="7" style="text-align:center;padding:28px;color:var(--inkl)">Chargement…</td></tr></tbody></table>
+      </div></div>
+    </div>
+    <!-- MODAL ÉLÈVE -->
+    <div class="mo" id="m-elv">
+      <div class="modal">
+        <div class="mh"><div class="mt" id="m-elv-t">Nouvel élève</div><button class="mc" onclick="cm('m-elv')">✕</button></div>
+        <div class="mb">
+          <input type="hidden" id="elv-id">
+          <div class="g2" style="gap:12px">
+            <div class="fg"><label>Nom *</label><input type="text" id="elv-nom" placeholder="DIALLO"></div>
+            <div class="fg"><label>Prénom *</label><input type="text" id="elv-pre" placeholder="Aminata"></div>
+            <div class="fg"><label>Sexe</label><select id="elv-sex"><option value="M">Masculin</option><option value="F">Féminin</option></select></div>
+            <div class="fg"><label>Date de naissance</label><input type="date" id="elv-ddn"></div>
+            <div class="fg"><label>Classe *</label><select id="elv-cl"><option value="">-- Choisir --</option>${classes.map(cl=>`<option value="${cl.id}">${cl.nom}</option>`).join('')}</select></div>
+            <div class="fg"><label>Matricule</label><input type="text" id="elv-mat" placeholder="LMS-2024-001"></div>
+            <div class="fg"><label>Mot de passe élève</label><input type="text" id="elv-pass" placeholder="Par défaut: matricule"></div>
+            <div class="fg"><label>Contact parent</label><input type="text" id="elv-par" placeholder="77 000 00 00"></div>
+          </div>
+        </div>
+        <div class="mf"><button class="btn btn-secondary" onclick="cm('m-elv')">Annuler</button><button class="btn btn-primary" onclick="saveElv()">💾 Enregistrer</button></div>
+      </div>
+    </div>`;
+  await loadEleves();
+}
+
+let allEleves = [];
+async function loadEleves(){
+  const data = await api('/api/eleves');
+  allEleves = data;
+  renderEleves(data);
+}
+function renderEleves(data){
+  const tb = document.getElementById('elv-tb');
+  if(!data.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--inkl)">Aucun élève</td></tr>';return;}
+  tb.innerHTML = data.map((e,i)=>`<tr>
+    <td>${i+1}</td><td style="font-weight:600">${e.nom} ${e.prenom}</td><td>${e.sexe}</td>
+    <td><span style="background:var(--gp);color:var(--gd);padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600">${e.classe||'—'}</span></td>
+    <td style="font-size:12px;color:var(--inkl)">${e.matricule}</td>
+    <td><span style="font-size:12px">${e.heures_abs}h <span style="${e.abs_ij>0?'color:var(--red);font-weight:600':''}">(${e.abs_ij} inj.)</span></span></td>
+    <td style="display:flex;gap:5px">
+      <button class="btn btn-sm btn-secondary" onclick='editElv(${JSON.stringify(e)})'>✏️</button>
+      <button class="btn btn-sm btn-danger" onclick="delElv(${e.id})">🗑️</button>
+    </td></tr>`).join('');
+}
+function filterElv(){
+  const q = document.getElementById('sch').value.toLowerCase();
+  const cl = document.getElementById('flt-cl').value;
+  renderEleves(allEleves.filter(e=>(e.nom+' '+e.prenom+e.matricule).toLowerCase().includes(q)&&(!cl||e.classe_id==cl)));
+}
+function openAddElv(){
+  document.getElementById('elv-id').value='';document.getElementById('m-elv-t').textContent='Nouvel élève';
+  ['elv-nom','elv-pre','elv-mat','elv-par','elv-pass','elv-ddn'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('elv-sex').value='M';om('m-elv');
+}
+function editElv(e){
+  document.getElementById('elv-id').value=e.id;document.getElementById('m-elv-t').textContent="Modifier l'élève";
+  document.getElementById('elv-nom').value=e.nom;document.getElementById('elv-pre').value=e.prenom;
+  document.getElementById('elv-sex').value=e.sexe;document.getElementById('elv-mat').value=e.matricule!=='—'?e.matricule:'';
+  document.getElementById('elv-par').value=e.contact||'';document.getElementById('elv-cl').value=e.classe_id||'';
+  om('m-elv');
+}
+async function saveElv(){
+  const id=document.getElementById('elv-id').value;
+  const data={nom:document.getElementById('elv-nom').value.trim(),prenom:document.getElementById('elv-pre').value.trim(),
+    sexe:document.getElementById('elv-sex').value,date_naissance:document.getElementById('elv-ddn').value,
+    classe_id:document.getElementById('elv-cl').value,matricule:document.getElementById('elv-mat').value.trim(),
+    contact_parent:document.getElementById('elv-par').value.trim(),password:document.getElementById('elv-pass').value};
+  if(!data.nom||!data.prenom||!data.classe_id){toast('⚠️ Champs obligatoires manquants','error');return;}
+  try{
+    if(id) await api(`/api/eleves/${id}`,'PUT',data);
+    else await api('/api/eleves','POST',data);
+    toast(id?'✅ Élève modifié':'✅ Élève ajouté');cm('m-elv');loadEleves();
+  }catch(e){toast('❌ '+e.message,'error');}
+}
+async function delElv(id){
+  if(!confirm('Supprimer cet élève ?'))return;
+  await api(`/api/eleves/${id}`,'DELETE');toast('🗑️ Élève supprimé');loadEleves();
+}
+
+// ════════════════ CLASSES ════════════════
+async function pageClasses(c){
+  c.innerHTML=`
+    <div class="card">
+      <div class="ch"><div class="ct">Gestion des classes</div><button class="btn btn-primary btn-sm" onclick="openAddCl()">+ Nouvelle classe</button></div>
+      <div class="cb" style="padding:0"><div class="tw">
+        <table><thead><tr><th>#</th><th>Classe</th><th>Niveau</th><th>Effectif</th><th>Série</th><th>Prof. Principal</th><th>Actions</th></tr></thead>
+        <tbody id="cl-tb"></tbody></table>
+      </div></div>
+    </div>
+    <div class="mo" id="m-cl">
+      <div class="modal"><div class="mh"><div class="mt" id="m-cl-t">Nouvelle classe</div><button class="mc" onclick="cm('m-cl')">✕</button></div>
+        <div class="mb"><input type="hidden" id="cl-id">
+          <div class="g2" style="gap:12px">
+            <div class="fg"><label>Nom *</label><input type="text" id="cl-nom" placeholder="Terminale S1"></div>
+            <div class="fg"><label>Niveau</label><select id="cl-niv"><option>6e</option><option>5e</option><option>4e</option><option>3e</option><option>2nde</option><option>1ère</option><option>Terminale</option></select></div>
+            <div class="fg"><label>Série</label><input type="text" id="cl-ser" placeholder="S1, L2…"></div>
+            <div class="fg"><label>Professeur principal</label><input type="text" id="cl-prof" placeholder="M. Sow Ibrahima"></div>
+          </div>
+        </div>
+        <div class="mf"><button class="btn btn-secondary" onclick="cm('m-cl')">Annuler</button><button class="btn btn-primary" onclick="saveCl()">💾 Enregistrer</button></div>
+      </div>
+    </div>`;
+  loadClasses();
+}
+async function loadClasses(){
+  const data=await api('/api/classes');
+  const tb=document.getElementById('cl-tb');
+  if(!data.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--inkl)">Aucune classe</td></tr>';return;}
+  tb.innerHTML=data.map((cl,i)=>`<tr><td>${i+1}</td><td style="font-weight:600">${cl.nom}</td><td>${cl.niveau}</td>
+    <td><span style="background:var(--gp);color:var(--gd);padding:2px 8px;border-radius:4px;font-size:12px;font-weight:700">${cl.effectif} élèves</span></td>
+    <td>${cl.serie}</td><td>${cl.prof_principal}</td>
+    <td style="display:flex;gap:5px"><button class="btn btn-sm btn-secondary" onclick='editCl(${JSON.stringify(cl)})'>✏️</button>
+    <button class="btn btn-sm btn-danger" onclick="delCl(${cl.id})">🗑️</button></td></tr>`).join('');
+}
+function openAddCl(){document.getElementById('cl-id').value='';['cl-nom','cl-ser','cl-prof'].forEach(id=>document.getElementById(id).value='');document.getElementById('m-cl-t').textContent='Nouvelle classe';om('m-cl');}
+function editCl(cl){document.getElementById('cl-id').value=cl.id;document.getElementById('m-cl-t').textContent='Modifier la classe';document.getElementById('cl-nom').value=cl.nom;document.getElementById('cl-niv').value=cl.niveau;document.getElementById('cl-ser').value=cl.serie!=='—'?cl.serie:'';document.getElementById('cl-prof').value=cl.prof_principal!=='—'?cl.prof_principal:'';om('m-cl');}
+async function saveCl(){
+  const id=document.getElementById('cl-id').value;
+  const data={nom:document.getElementById('cl-nom').value.trim(),niveau:document.getElementById('cl-niv').value,serie:document.getElementById('cl-ser').value.trim(),prof_principal:document.getElementById('cl-prof').value.trim()};
+  if(!data.nom){toast('⚠️ Nom requis','error');return;}
+  if(id) await api(`/api/classes/${id}`,'PUT',data); else await api('/api/classes','POST',data);
+  toast(id?'✅ Classe modifiée':'✅ Classe créée');cm('m-cl');loadClasses();
+}
+async function delCl(id){if(!confirm('Supprimer cette classe ?'))return;await api(`/api/classes/${id}`,'DELETE');toast('🗑️ Classe supprimée');loadClasses();}
+
+// ════════════════ MATIÈRES ════════════════
+async function pageMatieres(c){
+  c.innerHTML=`
+    <div class="card">
+      <div class="ch"><div class="ct">Matières et coefficients</div><button class="btn btn-primary btn-sm" onclick="openAddMat()">+ Nouvelle matière</button></div>
+      <div class="cb" style="padding:0"><div class="tw">
+        <table><thead><tr><th>#</th><th>Matière</th><th>Groupe</th><th>Coeff.</th><th>Enseignant</th><th>Actions</th></tr></thead>
+        <tbody id="mat-tb"></tbody></table>
+      </div></div>
+    </div>
+    <div class="mo" id="m-mat">
+      <div class="modal"><div class="mh"><div class="mt" id="m-mat-t">Nouvelle matière</div><button class="mc" onclick="cm('m-mat')">✕</button></div>
+        <div class="mb"><input type="hidden" id="mat-id">
+          <div class="g2" style="gap:12px">
+            <div class="fg"><label>Nom *</label><input type="text" id="mat-nom" placeholder="Mathématiques"></div>
+            <div class="fg"><label>Groupe</label><input type="text" id="mat-grp" placeholder="Sciences exactes"></div>
+            <div class="fg"><label>Coefficient *</label><input type="number" id="mat-coef" min="1" max="10" value="2"></div>
+            <div class="fg"><label>Enseignant</label><input type="text" id="mat-ens" placeholder="Mme Ndiaye Fatou"></div>
+          </div>
+        </div>
+        <div class="mf"><button class="btn btn-secondary" onclick="cm('m-mat')">Annuler</button><button class="btn btn-primary" onclick="saveMat()">💾 Enregistrer</button></div>
+      </div>
+    </div>`;
+  loadMatieres();
+}
+async function loadMatieres(){
+  const data=await api('/api/matieres');
+  const tb=document.getElementById('mat-tb');
+  if(!data.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--inkl)">Aucune matière</td></tr>';return;}
+  tb.innerHTML=data.map((m,i)=>`<tr><td>${i+1}</td><td style="font-weight:600">${m.nom}</td>
+    <td><span style="background:#f0f0f0;padding:2px 8px;border-radius:4px;font-size:12px">${m.groupe}</span></td>
+    <td><span style="background:var(--goldp);color:var(--gold);padding:2px 10px;border-radius:4px;font-weight:700">×${m.coefficient}</span></td>
+    <td>${m.enseignant}</td>
+    <td style="display:flex;gap:5px"><button class="btn btn-sm btn-secondary" onclick='editMat(${JSON.stringify(m)})'>✏️</button>
+    <button class="btn btn-sm btn-danger" onclick="delMat(${m.id})">🗑️</button></td></tr>`).join('');
+}
+function openAddMat(){document.getElementById('mat-id').value='';['mat-nom','mat-grp','mat-ens'].forEach(id=>document.getElementById(id).value='');document.getElementById('mat-coef').value='2';document.getElementById('m-mat-t').textContent='Nouvelle matière';om('m-mat');}
+function editMat(m){document.getElementById('mat-id').value=m.id;document.getElementById('m-mat-t').textContent='Modifier la matière';document.getElementById('mat-nom').value=m.nom;document.getElementById('mat-grp').value=m.groupe!=='—'?m.groupe:'';document.getElementById('mat-coef').value=m.coefficient;document.getElementById('mat-ens').value=m.enseignant!=='—'?m.enseignant:'';om('m-mat');}
+async function saveMat(){
+  const id=document.getElementById('mat-id').value;
+  const data={nom:document.getElementById('mat-nom').value.trim(),groupe:document.getElementById('mat-grp').value.trim(),coefficient:parseFloat(document.getElementById('mat-coef').value)||1,enseignant:document.getElementById('mat-ens').value.trim()};
+  if(!data.nom){toast('⚠️ Nom requis','error');return;}
+  if(id) await api(`/api/matieres/${id}`,'PUT',data); else await api('/api/matieres','POST',data);
+  toast(id?'✅ Matière modifiée':'✅ Matière ajoutée');cm('m-mat');loadMatieres();
+}
+async function delMat(id){if(!confirm('Supprimer ?'))return;await api(`/api/matieres/${id}`,'DELETE');toast('🗑️ Supprimée');loadMatieres();}
+
+// ════════════════ NOTES ════════════════
+async function pageNotes(c){
+  const classes=await api('/api/classes');
+  const matieres=await api('/api/matieres');
+  c.innerHTML=`
+    <div class="card" style="margin-bottom:14px"><div class="cb">
+      <div class="g3" style="gap:12px">
+        <div class="fg"><label>Trimestre</label><select id="nt-trim"><option value="1">1er Trimestre</option><option value="2">2e Trimestre</option><option value="3">3e Trimestre</option></select></div>
+        <div class="fg"><label>Classe</label><select id="nt-cl" onchange="loadElvNotes()"><option value="">-- Choisir --</option>${classes.map(cl=>`<option value="${cl.id}">${cl.nom}</option>`).join('')}</select></div>
+        <div class="fg"><label>Élève</label><select id="nt-elv" onchange="loadNotes()"><option value="">-- Choisir --</option></select></div>
+      </div>
+    </div></div>
+    <div id="nt-cont"><div class="es"><div class="es-i">✏️</div><div>Sélectionnez classe et élève</div></div></div>`;
+  window._matieres = matieres;
+}
+async function loadElvNotes(){
+  const cid=document.getElementById('nt-cl').value;const s=document.getElementById('nt-elv');
+  s.innerHTML='<option value="">-- Choisir --</option>';
+  if(!cid)return;
+  const eleves=await api(`/api/eleves?classe_id=${cid}`);
+  s.innerHTML='<option value="">-- Choisir --</option>'+eleves.map(e=>`<option value="${e.id}">${e.nom} ${e.prenom}</option>`).join('');
+}
+async function loadNotes(){
+  const eid=document.getElementById('nt-elv').value;const t=document.getElementById('nt-trim').value;
+  const c=document.getElementById('nt-cont');
+  if(!eid||!window._matieres?.length){c.innerHTML='<div class="es"><div class="es-i">✏️</div><div>Sélectionnez un élève</div></div>';return;}
+  const eName=document.getElementById('nt-elv').options[document.getElementById('nt-elv').selectedIndex].text;
+  const notes=await api(`/api/notes/${eid}/${t}`);
+  const noteMap={};notes.forEach(n=>noteMap[n.matiere_id]=n.note);
+  c.innerHTML=`<div class="card"><div class="ch"><div class="ct">Notes — ${eName}</div><span style="font-size:12px;color:var(--inkl)">${['1er','2e','3e'][t-1]} Trimestre</span></div>
+    <div class="cb"><div class="ng">${window._matieres.map(m=>`<div class="nc"><div class="nm">${m.nom} <span style="font-size:11px;color:var(--inkl)">coef.${m.coefficient}</span></div>
+      <div class="ni2"><input type="number" id="n-${m.id}" value="${noteMap[m.id]!==undefined?noteMap[m.id]:''}" min="0" max="20" step="0.25" placeholder="—"><span>/20</span></div></div>`).join('')}</div>
+    <div style="margin-top:14px;display:flex;gap:10px;align-items:center">
+      <button class="btn btn-primary" onclick="saveNotes(${eid},${t})">💾 Enregistrer</button>
+      <div id="mprev" style="font-size:13px;color:var(--inkl)"></div>
+    </div></div></div>`;
+  window._matieres.forEach(m=>{const el=document.getElementById('n-'+m.id);if(el)el.addEventListener('input',()=>prevMoy());});
+}
+function prevMoy(){
+  let p=0,c=0;(window._matieres||[]).forEach(m=>{const v=parseFloat(document.getElementById('n-'+m.id)?.value);if(!isNaN(v)){p+=v*m.coefficient;c+=m.coefficient;}});
+  const pr=document.getElementById('mprev');if(!pr)return;
+  if(c>0){const moy=(p/c).toFixed(2);const men=getMen(parseFloat(moy));pr.innerHTML=`Moy : <strong>${moy}/20</strong> — <span class="badge ${men.c}">${men.l}</span>`;}
+}
+async function saveNotes(eid,t){
+  const notes=(window._matieres||[]).map(m=>({matiere_id:m.id,note:document.getElementById('n-'+m.id)?.value}));
+  await api('/api/notes','POST',{eleve_id:eid,trimestre:t,notes});
+  toast('✅ Notes enregistrées !');
+}
+
+// ════════════════ BULLETINS ════════════════
+async function pageBulletins(c){
+  const classes=await api('/api/classes');
+  c.innerHTML=`
+    <div class="card" style="margin-bottom:14px"><div class="cb">
+      <div class="g3" style="gap:12px">
+        <div class="fg"><label>Trimestre</label><select id="bl-trim"><option value="1">1er Trimestre</option><option value="2">2e Trimestre</option><option value="3">3e Trimestre</option></select></div>
+        <div class="fg"><label>Classe</label><select id="bl-cl" onchange="loadElvBul()"><option value="">-- Choisir --</option>${classes.map(cl=>`<option value="${cl.id}">${cl.nom}</option>`).join('')}</select></div>
+        <div class="fg"><label>Élève</label><select id="bl-elv"><option value="">-- Choisir --</option></select></div>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:10px">
+        <button class="btn btn-primary" onclick="genBul()">📄 Générer</button>
+        <button class="btn btn-gold" onclick="printBul()">🖨️ Imprimer</button>
+      </div>
+    </div></div>
+    <div id="bul-cont"></div>`;
+}
+async function loadElvBul(){
+  const cid=document.getElementById('bl-cl').value;const s=document.getElementById('bl-elv');
+  s.innerHTML='<option value="">-- Choisir --</option>';
+  if(!cid)return;
+  const eleves=await api(`/api/eleves?classe_id=${cid}`);
+  s.innerHTML='<option value="">-- Choisir --</option>'+eleves.map(e=>`<option value="${e.id}">${e.nom} ${e.prenom}</option>`).join('');
+}
+async function genBul(){
+  const eid=document.getElementById('bl-elv').value;const t=document.getElementById('bl-trim').value;
+  if(!eid){toast('⚠️ Sélectionnez un élève','error');return;}
+  const d=await api(`/api/bulletin/${eid}/${t}`);
+  const men=getMen(d.moy);
+  const tn=['1er Trimestre','2e Trimestre','3e Trimestre'][t-1];
+  let rows='';
+  Object.entries(d.groupes).forEach(([g,mats])=>{
+    rows+=`<tr class="gh"><td colspan="4">${g}</td></tr>`;
+    mats.forEach(m=>{const cls=m.note<10?'nl':'no';rows+=`<tr><td>${m.matiere}</td><td style="text-align:center">×${m.coefficient}</td><td style="text-align:center" class="${cls}">${m.note.toFixed(2)}</td><td style="text-align:center">${m.pts}</td></tr>`;});
+  });
+  const appr=d.moy===null?'Notes non disponibles.':(d.moy>=14?'Excellent travail. Continuez ainsi.':d.moy>=12?'Bon trimestre. Des efforts supplémentaires permettront d\'aller encore plus loin.':d.moy>=10?'Résultats satisfaisants. Des progrès sont encore possibles.':'Des difficultés ont été constatées. Un travail régulier et soutenu est indispensable.');
+  document.getElementById('bul-cont').innerHTML=`<div class="bp" id="bul-doc">
+    <div class="be"><div class="bsch">${d.cfg.nom}</div><div class="bsub">${d.cfg.ville} — République du Sénégal</div><div class="btit">Bulletin de Notes — ${tn} — ${d.cfg.annee}</div></div>
+    <div class="binf"><div><span>Nom & Prénom : </span><strong>${d.eleve.nom} ${d.eleve.prenom}</strong></div><div><span>Classe : </span><strong>${d.classe.nom}</strong></div>
+      <div><span>Sexe : </span><strong>${d.eleve.sexe}</strong></div><div><span>Date de naissance : </span><strong>${d.eleve.date_naissance}</strong></div>
+      <div><span>Matricule : </span><strong>${d.eleve.matricule}</strong></div><div><span>Rang : </span><strong>${d.rang?d.rang+'e / '+d.total_cl:'—'}</strong></div></div>
+    <table class="bt"><thead><tr><th style="width:40%">Matière</th><th style="text-align:center;width:15%">Coeff.</th><th style="text-align:center;width:20%">Note /20</th><th style="text-align:center;width:25%">Pts pondérés</th></tr></thead>
+    <tbody>${rows}</tbody></table>
+    <div class="bsyn"><div><div class="bml">Moyenne générale</div><div class="bmv">${d.moy!==null?d.moy.toFixed(2)+' / 20':'— / 20'}</div></div>
+      <div style="text-align:center"><div class="bml">Rang</div><div class="bmv" style="font-size:16px">${d.rang?d.rang+'e / '+d.total_cl:'—'}</div></div>
+      <div>${d.moy!==null?`<span class="bmen">${men.l}</span>`:''}</div></div>
+    <div class="bapp"><strong>Appréciation : </strong>${appr}</div>
+    ${d.h_abs>0?`<div class="babs2">⚠️ <strong>Absences :</strong> ${d.h_abs}h au total, dont ${d.abs_ij} injustifiée(s).</div>`:''}
+    <div class="bsign"><div class="bsb"><div class="bsl">Professeur Principal</div><div class="bsline"></div><div class="bsnom">${d.classe.prof}</div></div>
+      <div class="bsb"><div class="bsl">Le/La Proviseur(e)</div><div class="bsline"></div><div class="bsnom">${d.cfg.proviseur}</div></div>
+      <div class="bsb"><div class="bsl">Signature Parent/Tuteur</div><div class="bsline"></div><div style="font-size:10px;color:#777;font-style:italic">Lu et approuvé</div></div></div>
+  </div>`;
+  toast('📄 Bulletin généré !');
+}
+function printBul(){const b=document.getElementById('bul-doc');if(!b){toast('⚠️ Générez d\'abord un bulletin','error');return;}const w=window.open('','_blank');w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Bulletin</title><link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"><style>body{font-family:\'DM Sans\',sans-serif;font-size:13px;color:#111;padding:20px}.bsch{font-family:\'DM Serif Display\',serif;font-size:20px;color:#0a3d2e;font-weight:bold}.bsub{font-size:11px;color:#555;margin-top:3px}.be{text-align:center;border-bottom:3px solid #0a3d2e;padding-bottom:12px;margin-bottom:12px}.btit{font-size:13px;font-weight:700;margin-top:8px;letter-spacing:1px;text-transform:uppercase;color:#0a3d2e}.binf{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:#f8f8f8;padding:10px;border-radius:6px;margin-bottom:12px;font-size:12px}.bt{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:12px}.bt th{background:#0a3d2e;color:#fff;padding:6px 9px;text-align:left;font-size:11px}.bt td{padding:5px 9px;border-bottom:1px solid #eee}.bt tr:nth-child(even) td{background:#f9f9f9}.gh td{background:#e8f4ef;font-weight:600;color:#0a3d2e;font-size:11px;text-transform:uppercase}.nl{color:#c0392b;font-weight:700}.no{color:#27ae60;font-weight:600}.bsyn{background:#0a3d2e;color:#fff;border-radius:8px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.bmv{font-size:20px;font-weight:700}.bml{font-size:11px;opacity:.7}.bmen{font-size:12px;font-weight:600;background:rgba(255,255,255,.2);padding:3px 10px;border-radius:20px}.bapp{background:#fffbf0;border:1px solid #f0d59a;border-radius:6px;padding:8px 12px;font-size:11.5px;color:#555;margin-bottom:10px}.babs2{background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:8px 12px;font-size:11.5px;color:#991b1b;margin-bottom:10px}.bsign{display:flex;justify-content:space-between;margin-top:16px}.bsb{text-align:center}.bsl{font-size:11px;color:#555}.bsnom{font-size:11px;font-weight:600;color:#333;margin-top:3px}.bsline{border-top:1px solid #333;width:100px;margin:22px auto 4px}@media print{body{padding:10mm}}</style></head><body>'+b.outerHTML+'</body></html>');w.document.close();setTimeout(()=>w.print(),500);}
+
+// ════════════════ ABSENCES ════════════════
+async function pageAbsences(c){
+  const classes=await api('/api/classes');const matieres=await api('/api/matieres');
+  c.innerHTML=`
+    <div class="card" style="margin-bottom:14px"><div class="cb">
+      <div class="g3" style="gap:12px;margin-bottom:12px">
+        <div class="fg"><label>Classe</label><select id="abs-cl" onchange="loadElvAbs()"><option value="">-- Toutes --</option>${classes.map(cl=>`<option value="${cl.id}">${cl.nom}</option>`).join('')}</select></div>
+        <div class="fg"><label>Élève</label><select id="abs-elv"><option value="">-- Tous --</option></select></div>
+        <div class="fg"><label>Statut</label><select id="abs-st"><option value="">Tous</option><option value="justifiee">Justifiées</option><option value="injustifiee">Injustifiées</option><option value="en_attente">En attente</option></select></div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-primary" onclick="openAddAbs()">+ Saisir une absence</button>
+        <button class="btn btn-secondary" onclick="loadAbsences()">🔄 Actualiser</button>
+      </div>
+    </div></div>
+    <div class="card"><div class="ch"><div class="ct">Registre des absences</div><span id="abs-cnt" style="font-size:12px;color:var(--inkl)"></span></div>
+      <div class="cb" style="padding:0"><div class="tw"><table><thead><tr><th>Date</th><th>Élève</th><th>Classe</th><th>Matière / Horaire</th><th>Statut</th><th>Motif</th><th>Actions</th></tr></thead>
+      <tbody id="abs-tb"></tbody></table></div></div></div>
+    <!-- MODAL ABSENCE -->
+    <div class="mo" id="m-abs">
+      <div class="modal"><div class="mh"><div class="mt">Saisir une absence</div><button class="mc" onclick="cm('m-abs')">✕</button></div>
+        <div class="mb">
+          <div class="g2" style="gap:12px">
+            <div class="fg"><label>Élève *</label><select id="abs-elv-s" style="width:100%"><option value="">-- Choisir --</option></select></div>
+            <div class="fg"><label>Date *</label><input type="date" id="abs-dat"></div>
+            <div class="fg"><label>Heure début</label><input type="time" id="abs-hd" value="08:00"></div>
+            <div class="fg"><label>Heure fin</label><input type="time" id="abs-hf" value="10:00"></div>
+            <div class="fg"><label>Matière</label><select id="abs-mat-s"><option value="">-- Aucune --</option>${matieres.map(m=>`<option value="${m.id}">${m.nom}</option>`).join('')}</select></div>
+            <div class="fg"><label>Statut</label><select id="abs-stat-s"><option value="injustifiee">Injustifiée</option><option value="justifiee">Justifiée</option><option value="en_attente">En attente</option></select></div>
+          </div>
+          <div class="fg" style="margin-top:10px"><label>Motif</label><input type="text" id="abs-mot" placeholder="Maladie, deuil, rendez-vous…"></div>
+          <div class="fg" style="margin-top:10px"><label>Élève (liste complète)</label><select id="abs-elv-all" style="width:100%"><option value="">-- Choisir --</option></select></div>
+        </div>
+        <div class="mf"><button class="btn btn-secondary" onclick="cm('m-abs')">Annuler</button><button class="btn btn-primary" onclick="saveAbs()">💾 Enregistrer</button></div>
+      </div>
+    </div>`;
+  window._matieres_abs = matieres;
+  loadAbsences();
+  loadAllEleves();
+}
+async function loadAllEleves(){
+  const eleves=await api('/api/eleves');
+  const s=document.getElementById('abs-elv-all');
+  if(s) s.innerHTML='<option value="">-- Choisir --</option>'+eleves.sort((a,b)=>a.nom.localeCompare(b.nom)).map(e=>`<option value="${e.id}">${e.nom} ${e.prenom}</option>`).join('');
+}
+async function loadElvAbs(){
+  const cid=document.getElementById('abs-cl').value;const s=document.getElementById('abs-elv');
+  s.innerHTML='<option value="">-- Tous --</option>';
+  if(!cid)return;
+  const eleves=await api(`/api/eleves?classe_id=${cid}`);
+  s.innerHTML='<option value="">-- Tous --</option>'+eleves.map(e=>`<option value="${e.id}">${e.nom} ${e.prenom}</option>`).join('');
+}
+async function loadAbsences(){
+  const cid=document.getElementById('abs-cl')?.value||'';const eid=document.getElementById('abs-elv')?.value||'';const st=document.getElementById('abs-st')?.value||'';
+  let url='/api/absences?x=1';if(eid)url+=`&eleve_id=${eid}`;else if(cid)url+=`&classe_id=${cid}`;if(st)url+=`&statut=${st}`;
+  const data=await api(url);
+  const cnt=document.getElementById('abs-cnt');if(cnt)cnt.textContent=data.length+' absence(s)';
+  const tb=document.getElementById('abs-tb');
+  if(!data.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--inkl)">Aucune absence</td></tr>';return;}
+  const sbl={justifiee:`<span class="badge b-j">Justifiée</span>`,injustifiee:`<span class="badge b-ij">Injustifiée</span>`,en_attente:`<span class="badge b-at">En attente</span>`};
+  tb.innerHTML=data.map(a=>`<tr><td>${a.date}</td><td style="font-weight:600">${a.eleve}</td><td>${a.classe}</td>
+    <td>${a.matiere} <span style="font-size:11px;color:var(--inkl)">${a.heure_debut!=='—'?a.heure_debut+'-'+a.heure_fin:''}</span></td>
+    <td>${sbl[a.statut]||'—'}</td><td style="font-size:12px;color:var(--inkl)">${a.motif}</td>
+    <td style="display:flex;gap:4px"><button class="btn btn-sm btn-gold" onclick="justAbs(${a.id})">✓ Justifier</button>
+    <button class="btn btn-sm btn-danger" onclick="delAbs(${a.id})">🗑️</button></td></tr>`).join('');
+}
+function openAddAbs(){document.getElementById('abs-dat').value=new Date().toISOString().slice(0,10);document.getElementById('abs-hd').value='08:00';document.getElementById('abs-hf').value='10:00';document.getElementById('abs-mot').value='';document.getElementById('abs-stat-s').value='injustifiee';om('m-abs');}
+async function saveAbs(){
+  const eid=document.getElementById('abs-elv-all').value||document.getElementById('abs-elv-s')?.value;const date=document.getElementById('abs-dat').value;
+  if(!eid||!date){toast('⚠️ Élève et date requis','error');return;}
+  await api('/api/absences','POST',{eleve_id:parseInt(eid),date,heure_debut:document.getElementById('abs-hd').value,heure_fin:document.getElementById('abs-hf').value,matiere_id:document.getElementById('abs-mat-s').value||null,statut:document.getElementById('abs-stat-s').value,motif:document.getElementById('abs-mot').value});
+  toast('✅ Absence enregistrée');cm('m-abs');loadAbsences();
+}
+async function justAbs(id){const m=prompt('Motif de justification :');if(m===null)return;await api(`/api/absences/${id}/justifier`,'PUT',{motif:m});toast('✅ Absence justifiée');loadAbsences();}
+async function delAbs(id){if(!confirm('Supprimer ?'))return;await api(`/api/absences/${id}`,'DELETE');toast('🗑️ Supprimée');loadAbsences();}
+
+// ════════════════ BILLETS ════════════════
+async function pageBillets(c){
+  const eleves=await api('/api/eleves');
+  const eOpts='<option value="">-- Choisir --</option>'+eleves.sort((a,b)=>a.nom.localeCompare(b.nom)).map(e=>`<option value="${e.id}" data-cl="${e.classe||''}" data-mat="${e.matricule}" data-par="${e.contact||''}">${e.nom} ${e.prenom}</option>`).join('');
+  window._elv_opts=eOpts;window._all_eleves=eleves;
+  const today=new Date().toISOString().slice(0,10);const now=new Date().toTimeString().slice(0,5);
+  c.innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:18px">
+      ${[['🟢','Billet d\'entrée','Réintégrer après absence','entree'],['🔴','Billet de sortie','Quitter avant la fin','sortie'],['📋','Autorisation d\'absence','Absence prévisible justifiée','autorisation']].map(([ico,tit,sub,type])=>`
+      <div class="card" style="margin:0;cursor:pointer;transition:transform .2s" onclick="showBilletForm('${type}')" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
+        <div class="cb" style="text-align:center;padding:24px"><div style="font-size:36px;margin-bottom:8px">${ico}</div><div style="font-weight:600;font-size:14px;margin-bottom:4px">${tit}</div><div style="font-size:12px;color:var(--inkl)">${sub}</div></div></div>`).join('')}
+    </div>
+    <div id="bil-form"><div class="es"><div class="es-i">🎫</div><div>Choisissez un type de billet ci-dessus</div></div></div>
+    <div id="bil-result"></div>`;
+}
+function showBilletForm(type){
+  const today=new Date().toISOString().slice(0,10);const now=new Date().toTimeString().slice(0,5);
+  const eOpts=window._elv_opts||'';
+  let fields='';
+  if(type==='entree') fields=`<div class="fg"><label>Élève *</label><select id="b-elv">${eOpts}</select></div><div class="fg"><label>Date de retour</label><input type="date" id="b-dat" value="${today}"></div><div class="fg" style="grid-column:1/-1"><label>Motif de l'absence *</label><input type="text" id="b-mot" placeholder="Maladie, deuil…"></div>`;
+  else if(type==='sortie') fields=`<div class="fg"><label>Élève *</label><select id="b-elv">${eOpts}</select></div><div class="fg"><label>Date</label><input type="date" id="b-dat" value="${today}"></div><div class="fg"><label>Heure de sortie</label><input type="time" id="b-heure" value="${now}"></div><div class="fg"><label>Retour prévu</label><input type="time" id="b-ret" value="14:00"></div><div class="fg" style="grid-column:1/-1"><label>Motif *</label><input type="text" id="b-mot" placeholder="Rendez-vous médical…"></div>`;
+  else fields=`<div class="fg"><label>Élève *</label><select id="b-elv">${eOpts}</select></div><div class="fg"><label>Du</label><input type="date" id="b-dat" value="${today}"></div><div class="fg"><label>Au</label><input type="date" id="b-dat2" value="${today}"></div><div class="fg"><label>Type de motif</label><select id="b-tmo"><option value="médical">Médical</option><option value="familial">Familial/deuil</option><option value="concours">Concours/Examen</option><option value="sportif">Sportif</option><option value="autre">Autre</option></select></div><div class="fg" style="grid-column:1/-1"><label>Détails *</label><input type="text" id="b-mot" placeholder="Expliquez la raison…"></div>`;
+  document.getElementById('bil-form').innerHTML=`<div class="card"><div class="ch"><div class="ct">${{entree:"Billet d'entrée",sortie:"Billet de sortie",autorisation:"Autorisation d'absence"}[type]}</div></div>
+    <div class="cb"><div class="g2" style="gap:12px">${fields}</div><div style="margin-top:14px;display:flex;gap:10px"><button class="btn btn-primary" onclick="makeBillet('${type}')">📄 Générer le billet</button></div></div></div>`;
+}
+async function makeBillet(type){
+  const eid=document.getElementById('b-elv').value;const mot=document.getElementById('b-mot').value.trim();
+  if(!eid||!mot){toast('⚠️ Élève et motif requis','error');return;}
+  const e=window._all_eleves.find(x=>x.id==eid);
+  const cfg=await api('/api/config');
+  const num='B'+(Date.now()%10000)+'-'+new Date().getFullYear();const now=new Date().toLocaleDateString('fr-FR');
+  let rows='';
+  if(type==='entree'){rows=`<div class="bil-row"><span class="bl">Élève :</span><span class="bv">${e.nom} ${e.prenom}</span></div><div class="bil-row"><span class="bl">Classe :</span><span class="bv">${e.classe||'—'}</span></div><div class="bil-row"><span class="bl">Matricule :</span><span class="bv">${e.matricule}</span></div><div class="bil-row"><span class="bl">Date retour :</span><span class="bv">${document.getElementById('b-dat').value}</span></div><div class="bil-row"><span class="bl">Motif :</span><span class="bv">${mot}</span></div>`;}
+  else if(type==='sortie'){rows=`<div class="bil-row"><span class="bl">Élève :</span><span class="bv">${e.nom} ${e.prenom}</span></div><div class="bil-row"><span class="bl">Classe :</span><span class="bv">${e.classe||'—'}</span></div><div class="bil-row"><span class="bl">Date :</span><span class="bv">${document.getElementById('b-dat').value}</span></div><div class="bil-row"><span class="bl">Sortie à :</span><span class="bv">${document.getElementById('b-heure').value}</span></div><div class="bil-row"><span class="bl">Retour prévu :</span><span class="bv">${document.getElementById('b-ret').value}</span></div><div class="bil-row"><span class="bl">Motif :</span><span class="bv">${mot}</span></div>`;}
+  else{rows=`<div class="bil-row"><span class="bl">Élève :</span><span class="bv">${e.nom} ${e.prenom}</span></div><div class="bil-row"><span class="bl">Classe :</span><span class="bv">${e.classe||'—'}</span></div><div class="bil-row"><span class="bl">Du :</span><span class="bv">${document.getElementById('b-dat').value}</span></div><div class="bil-row"><span class="bl">Au :</span><span class="bv">${document.getElementById('b-dat2').value}</span></div><div class="bil-row"><span class="bl">Motif :</span><span class="bv">${document.getElementById('b-tmo').value} — ${mot}</span></div>`;}
+  const icoBg={entree:'#f0faf6',sortie:'#fff3f3',autorisation:'#fffbf0'};const icoBdr={entree:'#d4efe5',sortie:'#fecaca',autorisation:'#f0d59a'};const icoTxt={entree:'#1a6b4a',sortie:'#991b1b',autorisation:'#7a5000'};const icoMsg={entree:"L'élève est autorisé(e) à réintégrer ses cours. Présenter à chaque professeur.",sortie:"L'élève doit pointer à son retour auprès de la surveillance.",autorisation:"Autorisation accordée. Les cours manqués doivent être rattrapés sous 72h."};
+  document.getElementById('bil-result').innerHTML=`<div class="billet" id="bil-doc">
+    <div class="bil-ent"><div class="bil-title">${cfg.nom||'Lycée Malick Sy'}</div><div class="bil-type">${{entree:"🟢 Billet d'entrée",sortie:"🔴 Billet de sortie",autorisation:"📋 Autorisation d'absence"}[type]}</div><div class="bil-num">N° ${num} — ${now}</div></div>
+    ${rows}
+    <div style="font-size:12px;background:${icoBg[type]};border:1px solid ${icoBdr[type]};border-radius:6px;padding:9px 12px;margin:12px 0;color:${icoTxt[type]}">${icoMsg[type]}</div>
+    <div class="bil-sign"><div class="bil-sb"><div class="bil-sline"></div><div class="bil-slbl">Le/La Censeur(e)</div></div><div class="bil-sb"><div class="bil-sline"></div><div class="bil-slbl">${type==='sortie'?'Contact parent : '+e.contact:'Signature du Professeur'}</div></div>${type==='autorisation'?`<div class="bil-sb"><div class="bil-sline"></div><div class="bil-slbl">Le/La Proviseur(e)<br><strong>${cfg.proviseur||''}</strong></div></div>`:''}</div>
+  </div>
+  <div style="margin-top:12px;display:flex;gap:10px"><button class="btn btn-gold" onclick="printBillet()">🖨️ Imprimer ce billet</button></div>`;
+  toast('✅ Billet généré !');
+}
+function printBillet(){const b=document.getElementById('bil-doc');if(!b)return;const w=window.open('','_blank');w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Billet</title><link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"><style>body{font-family:\'DM Sans\',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f4f4f0;padding:20px}.billet{background:#fff;border:2px solid #1a6b4a;border-radius:8px;padding:20px 24px;max-width:480px;width:100%;font-size:13px;color:#111}.bil-ent{text-align:center;border-bottom:2px solid #1a6b4a;padding-bottom:10px;margin-bottom:12px}.bil-title{font-family:\'DM Serif Display\',serif;font-size:17px;color:#0a3d2e}.bil-type{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#1a6b4a;margin-top:4px}.bil-num{font-size:10px;color:#888;margin-top:2px}.bil-row{display:flex;gap:8px;font-size:12.5px;margin-bottom:6px}.bl{font-weight:600;color:#555;min-width:110px;flex-shrink:0}.bv{color:#111;border-bottom:1px solid #ccc;flex:1;padding-bottom:2px}.bil-sign{display:flex;justify-content:space-between;margin-top:14px;padding-top:10px;border-top:1px solid #ddd}.bil-sb{text-align:center}.bil-sline{border-top:1px solid #333;width:100px;margin:18px auto 4px}.bil-slbl{font-size:10px;color:#666}@media print{body{background:#fff}}</style></head><body>'+b.outerHTML+'</body></html>');w.document.close();setTimeout(()=>w.print(),500);}
+
+// ════════════════ DEMANDES ════════════════
+async function pageDemandes(c){
+  c.innerHTML=`
+    <div class="card"><div class="ch"><div class="ct">Demandes en attente</div><span id="dem-cnt" class="badge b-at"></span></div>
+      <div class="cb" style="padding:0"><div class="tw"><table><thead><tr><th>Date</th><th>Élève</th><th>Classe</th><th>Type</th><th>Motif</th><th>Statut</th><th>Actions</th></tr></thead>
+      <tbody id="dem-att-tb"></tbody></table></div></div></div>
+    <div class="card"><div class="ch"><div class="ct">Demandes traitées</div></div>
+      <div class="cb" style="padding:0"><div class="tw"><table><thead><tr><th>Date</th><th>Élève</th><th>Type</th><th>Décision</th><th>Traité par</th><th>Actions</th></tr></thead>
+      <tbody id="dem-done-tb"></tbody></table></div></div></div>`;
+  loadDemandes();
+}
+async function loadDemandes(){
+  const att=await api('/api/demandes?statut=attente');const done=await api('/api/demandes?statut=done');
+  const cnt=document.getElementById('dem-cnt');if(cnt)cnt.textContent=att.length;
+  const tl={absence:"Autorisation absence",sortie:"Billet sortie",rattrapage:"Rattrapage",autre:"Autre"};
+  const tb1=document.getElementById('dem-att-tb');
+  tb1.innerHTML=att.length?att.map(d=>`<tr><td style="font-size:12px">${d.created_at}</td><td style="font-weight:600">${d.eleve}</td><td>${d.classe}</td>
+    <td><span style="background:var(--bluep,#e8edf5);color:#1a3a6b;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600">${tl[d.type_demande]||d.type_demande}</span></td>
+    <td style="font-size:12px;max-width:160px">${d.motif||'—'}</td><td><span class="badge b-at">En attente</span></td>
+    <td style="display:flex;gap:4px"><button class="btn btn-sm btn-primary" onclick="traitDem(${d.id},'approuvee')">✅</button><button class="btn btn-sm btn-danger" onclick="traitDem(${d.id},'refusee')">❌</button></td></tr>`).join(''):'<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--inkl)">Aucune demande en attente</td></tr>';
+  const all=await api('/api/demandes');const doneAll=all.filter(d=>d.statut!=='attente');
+  const tb2=document.getElementById('dem-done-tb');
+  tb2.innerHTML=doneAll.length?doneAll.map(d=>`<tr><td style="font-size:12px">${d.created_at}</td><td>${d.eleve}</td><td style="font-size:12px">${tl[d.type_demande]||d.type_demande}</td>
+    <td>${d.statut==='approuvee'?'<span class="badge b-ok">Approuvée</span>':'<span class="badge b-no">Refusée</span>'}</td>
+    <td style="font-size:12px">${d.traite_par}</td>
+    <td>${d.statut==='approuvee'?`<button class="btn btn-sm btn-gold" onclick="genBilletDem(${d.id})">🎫 Billet</button>`:'—'}</td></tr>`).join(''):'<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--inkl)">Aucune</td></tr>';
+}
+async function traitDem(id,statut){await api(`/api/demandes/${id}/traiter`,'PUT',{statut});toast(statut==='approuvee'?'✅ Approuvée':'❌ Refusée');loadDemandes();}
+function genBilletDem(id){window.location.href='/billets';}
+
+// ════════════════ PERSONNEL ════════════════
+async function pagePersonnel(c){
+  c.innerHTML=`
+    <div class="card"><div class="ch"><div class="ct">Comptes du personnel</div><button class="btn btn-primary btn-sm" onclick="openAddPers()">+ Nouveau compte</button></div>
+      <div class="cb" style="padding:0"><table><thead><tr><th>#</th><th>Nom</th><th>Identifiant</th><th>Rôle</th><th>Accès</th><th>Actions</th></tr></thead>
+      <tbody id="pers-tb"></tbody></table></div></div>
+    <div class="mo" id="m-pers">
+      <div class="modal"><div class="mh"><div class="mt">Nouveau compte</div><button class="mc" onclick="cm('m-pers')">✕</button></div>
+        <div class="mb"><div class="g2" style="gap:12px">
+          <div class="fg"><label>Nom complet *</label><input type="text" id="pe-nom" placeholder="M. Prénom NOM"></div>
+          <div class="fg"><label>Identifiant *</label><input type="text" id="pe-log" placeholder="ex: prof.fall"></div>
+          <div class="fg"><label>Mot de passe *</label><input type="password" id="pe-pas"></div>
+          <div class="fg"><label>Rôle *</label><select id="pe-rol"><option value="directeur">Directeur — Accès total</option><option value="censeur">Censeur</option><option value="enseignant">Enseignant — Notes</option><option value="secretaire">Secrétaire — Élèves</option></select></div>
+        </div></div>
+        <div class="mf"><button class="btn btn-secondary" onclick="cm('m-pers')">Annuler</button><button class="btn btn-primary" onclick="savePers()">💾 Enregistrer</button></div>
+      </div>
+    </div>`;
+  loadPersonnel();
+}
+async function loadPersonnel(){
+  const data=await api('/api/personnel');const tb=document.getElementById('pers-tb');
+  const rc={directeur:'#1a3a6b',censeur:'#0a3d2e',enseignant:'#7a5000',secretaire:'#6b1a6b'};
+  const rl={directeur:'Directeur',censeur:'Censeur',enseignant:'Enseignant',secretaire:'Secrétaire'};
+  const ra={directeur:'Accès total',censeur:'Notes·Bulletins·Absences',enseignant:'Notes·Absences',secretaire:'Élèves·Classes'};
+  tb.innerHTML=data.map((p,i)=>`<tr><td>${i+1}</td><td style="font-weight:600">${p.nom}</td>
+    <td style="font-family:monospace;font-size:12px;color:var(--inkm)">${p.login}</td>
+    <td><span style="background:${rc[p.role]||'#888'}22;color:${rc[p.role]||'#888'};padding:3px 10px;border-radius:4px;font-size:12px;font-weight:600">${rl[p.role]||p.role}</span></td>
+    <td style="font-size:12px;color:var(--inkl)">${ra[p.role]||'—'}</td>
+    <td>${p.id!==USER.id?`<button class="btn btn-sm btn-danger" onclick="delPers(${p.id})">🗑️</button>`:'—'}</td></tr>`).join('');
+}
+function openAddPers(){['pe-nom','pe-log','pe-pas'].forEach(id=>document.getElementById(id).value='');om('m-pers');}
+async function savePers(){
+  const nom=document.getElementById('pe-nom').value.trim();const log=document.getElementById('pe-log').value.trim();const pas=document.getElementById('pe-pas').value;
+  if(!nom||!log||!pas){toast('⚠️ Tous les champs requis','error');return;}
+  try{await api('/api/personnel','POST',{nom,login:log,password:pas,role:document.getElementById('pe-rol').value});toast('✅ Compte créé !');cm('m-pers');loadPersonnel();}
+  catch(e){toast('❌ '+e.message,'error');}
+}
+async function delPers(id){if(!confirm('Supprimer ce compte ?'))return;await api(`/api/personnel/${id}`,'DELETE');toast('🗑️ Supprimé');loadPersonnel();}
+
+// ════════════════ CONFIG ════════════════
+async function pageConfig(c){
+  const cfg=await api('/api/config');
+  c.innerHTML=`
+    <div class="card"><div class="ch"><div class="ct">Configuration générale</div></div>
+      <div class="cb">
+        <div class="g2" style="gap:14px;margin-bottom:16px">
+          <div class="fg"><label>Nom de l'établissement</label><input type="text" id="cfg-nom" value="${cfg.nom||'Lycée Malick Sy'}"></div>
+          <div class="fg"><label>Ville</label><input type="text" id="cfg-vil" value="${cfg.ville||'Thiès'}"></div>
+          <div class="fg"><label>Année scolaire</label><input type="text" id="cfg-ann" value="${cfg.annee||'2024-2025'}"></div>
+          <div class="fg"><label>Nom du/de la Proviseur(e)</label><input type="text" id="cfg-prov" value="${cfg.proviseur||''}" placeholder="M. Prénom NOM"></div>
+        </div>
+        <button class="btn btn-primary" onclick="saveConf()">💾 Sauvegarder</button>
+      </div></div>
+    <div class="card"><div class="ch"><div class="ct">Informations de sécurité</div></div>
+      <div class="cb">
+        <div style="background:var(--gf);border:1px solid var(--gp);border-radius:8px;padding:14px 16px;font-size:13px;color:var(--gd);line-height:1.7">
+          ✅ <strong>Mots de passe chiffrés</strong> avec bcrypt — impossible à lire même en accédant à la base<br>
+          ✅ <strong>Sessions sécurisées</strong> avec Flask-Login — token de session côté serveur<br>
+          ✅ <strong>Contrôle d'accès par rôle</strong> — chaque endpoint vérifie le rôle de l'utilisateur<br>
+          ✅ <strong>Base de données réelle</strong> — PostgreSQL sur Railway, sauvegardée automatiquement<br>
+          ✅ <strong>HTTPS automatique</strong> — Railway active le SSL/TLS gratuitement
+        </div>
+      </div></div>`;
+}
+async function saveConf(){
+  await api('/api/config','POST',{nom:document.getElementById('cfg-nom').value,ville:document.getElementById('cfg-vil').value,annee:document.getElementById('cfg-ann').value,proviseur:document.getElementById('cfg-prov').value});
+  document.getElementById('tann').textContent=document.getElementById('cfg-ann').value;
+  toast('✅ Configuration sauvegardée');
+}
+</script>
+{% endblock %}

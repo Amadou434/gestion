@@ -1,0 +1,135 @@
+{% extends "layout.html" %}
+{% block body %}
+{{ super() }}
+<script>
+document.body.dataset.page = 'p{{ section }}';
+const SECTION = '{{ section }}';
+const TITLES = {notes:'Mes notes',absences:'Mes absences',bulletin:'Mon bulletin',demande:'Faire une demande'};
+document.getElementById('ttl').textContent = TITLES[SECTION] || 'Mon espace';
+
+window.addEventListener('DOMContentLoaded', () => {
+  const c = document.getElementById('main-content');
+  if(SECTION==='notes') pagePortalNotes(c);
+  else if(SECTION==='absences') pagePortalAbs(c);
+  else if(SECTION==='bulletin') pagePortalBulletin(c);
+  else if(SECTION==='demande') pagePortalDemande(c);
+});
+
+async function pagePortalNotes(c){
+  c.innerHTML=`<div style="background:var(--wh);border-radius:16px;border:1px solid var(--bdr);box-shadow:var(--sh);padding:22px">
+    <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--gd);margin-bottom:4px">Mes notes</div>
+    <div style="font-size:12px;color:var(--inkl);margin-bottom:16px">Consultez vos résultats par trimestre</div>
+    <select id="pn-trim" onchange="loadPortalNotes()" style="padding:9px 13px;border:1.5px solid var(--bdr);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;margin-bottom:18px">
+      <option value="1">1er Trimestre</option><option value="2">2e Trimestre</option><option value="3">3e Trimestre</option>
+    </select>
+    <div id="pn-cont"><div class="es"><div class="es-i">📊</div><div>Sélectionnez un trimestre</div></div></div>
+  </div>`;
+  loadPortalNotes();
+}
+
+async function loadPortalNotes(){
+  const t=document.getElementById('pn-trim').value;
+  const eid=USER.eleve_id;if(!eid)return;
+  const d=await api(`/api/bulletin/${eid}/${t}`);
+  const c=document.getElementById('pn-cont');
+  if(!Object.keys(d.groupes||{}).length){c.innerHTML='<div class="es"><div class="es-i">📊</div><div>Aucune note pour ce trimestre</div></div>';return;}
+  const men=getMen(d.moy);
+  let html='';
+  if(d.moy!==null){html+=`<div style="background:var(--gd);color:#fff;border-radius:10px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><div><div style="font-size:11px;opacity:.7">Moyenne générale — T${t}</div><div style="font-size:24px;font-weight:700">${d.moy.toFixed(2)} / 20</div></div><span style="background:rgba(255,255,255,.2);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600">${men.l}</span></div>`;}
+  Object.entries(d.groupes).forEach(([g,mats])=>{
+    html+=`<div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--inkl);margin:14px 0 6px">${g}</div>`;
+    mats.forEach(m=>{const pct=(m.note/20*100).toFixed(0);const col=m.note<10?'var(--red)':m.note>=14?'var(--gl)':'var(--gold)';html+=`<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0f0f0"><span style="font-weight:500">${m.matiere} <span style="font-size:11px;color:var(--inkl)">coef.${m.coefficient}</span></span><div style="display:flex;align-items:center;gap:10px"><div style="width:80px;height:5px;background:var(--bdr);border-radius:3px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${col};border-radius:3px"></div></div><span style="font-size:14px;font-weight:700;color:${col};min-width:50px;text-align:right">${m.note.toFixed(2)}/20</span></div></div>`;});
+  });
+  c.innerHTML=html;
+}
+
+async function pagePortalAbs(c){
+  const eid=USER.eleve_id;if(!eid)return;
+  const data=await api(`/api/absences?eleve_id=${eid}`);
+  const sbl={justifiee:`<span class="badge b-j">Justifiée</span>`,injustifiee:`<span class="badge b-ij">Injustifiée</span>`,en_attente:`<span class="badge b-at">En attente</span>`};
+  const ij=data.filter(a=>a.statut==='injustifiee').length;
+  c.innerHTML=`<div style="background:var(--wh);border-radius:16px;border:1px solid var(--bdr);box-shadow:var(--sh);padding:22px">
+    <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--gd);margin-bottom:14px">Mes absences</div>
+    <div style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap">
+      <div style="background:var(--surf);border:1px solid var(--bdr);border-radius:8px;padding:12px 16px;flex:1;min-width:100px"><div style="font-size:11px;color:var(--inkl)">Total</div><div style="font-size:22px;font-weight:700">${data.length}</div></div>
+      <div style="background:${ij>0?'var(--redp)':'var(--gf)'};border:1px solid ${ij>0?'#fecaca':'var(--gp)'};border-radius:8px;padding:12px 16px;flex:1;min-width:100px"><div style="font-size:11px;color:var(--inkl)">Injustifiées</div><div style="font-size:22px;font-weight:700;color:${ij>0?'var(--red)':'var(--gl)'}">${ij}</div></div>
+    </div>
+    ${data.length?data.map(a=>`<div style="display:flex;gap:12px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #f0f0f0">
+      <div style="font-size:12px;font-weight:600;color:var(--inkm);min-width:80px">${a.date}</div>
+      <div style="flex:1"><div style="font-weight:500">${a.matiere!=='—'?a.matiere:'Cours'} ${a.heure_debut!=='—'?'· '+a.heure_debut+'-'+a.heure_fin:''}</div><div style="font-size:12px;color:var(--inkl)">${a.motif!=='—'?a.motif:'Aucun motif indiqué'}</div></div>
+      ${sbl[a.statut]||'—'}</div>`).join(''):'<div class="es"><div class="es-i">✅</div><div>Aucune absence enregistrée — continuez ainsi !</div></div>'}
+  </div>`;
+}
+
+async function pagePortalBulletin(c){
+  c.innerHTML=`<div style="background:var(--wh);border-radius:16px;border:1px solid var(--bdr);box-shadow:var(--sh);padding:22px">
+    <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--gd);margin-bottom:4px">Mon bulletin</div>
+    <div style="font-size:12px;color:var(--inkl);margin-bottom:14px">Consultez et imprimez votre bulletin scolaire</div>
+    <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+      <select id="pb-trim" style="padding:9px 13px;border:1.5px solid var(--bdr);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none">
+        <option value="1">1er Trimestre</option><option value="2">2e Trimestre</option><option value="3">3e Trimestre</option>
+      </select>
+      <button class="btn btn-primary" onclick="loadPortalBul()">📄 Afficher</button>
+      <button class="btn btn-gold" onclick="printPortalBul()">🖨️ Imprimer</button>
+    </div>
+    <div id="pbul-cont"></div>
+  </div>`;
+}
+
+async function loadPortalBul(){
+  const t=document.getElementById('pb-trim').value;const eid=USER.eleve_id;if(!eid)return;
+  const d=await api(`/api/bulletin/${eid}/${t}`);
+  const men=getMen(d.moy);const tn=['1er Trimestre','2e Trimestre','3e Trimestre'][t-1];
+  let rows='';
+  Object.entries(d.groupes).forEach(([g,mats])=>{rows+=`<tr class="gh"><td colspan="4">${g}</td></tr>`;mats.forEach(m=>{const cls=m.note<10?'nl':'no';rows+=`<tr><td>${m.matiere}</td><td style="text-align:center">×${m.coefficient}</td><td style="text-align:center" class="${cls}">${m.note.toFixed(2)}</td><td style="text-align:center">${m.pts}</td></tr>`;});});
+  const appr=d.moy===null?'Notes non disponibles.':(d.moy>=14?'Excellent travail. Continuez ainsi.':d.moy>=12?'Bon trimestre.':d.moy>=10?'Résultats satisfaisants.':'Des difficultés ont été constatées.');
+  document.getElementById('pbul-cont').innerHTML=`<div class="bp" id="pbul-doc">
+    <div class="be"><div class="bsch">${d.cfg.nom}</div><div class="bsub">${d.cfg.ville} — République du Sénégal</div><div class="btit">Bulletin de Notes — ${tn} — ${d.cfg.annee}</div></div>
+    <div class="binf"><div><span>Nom & Prénom : </span><strong>${d.eleve.nom} ${d.eleve.prenom}</strong></div><div><span>Classe : </span><strong>${d.classe.nom}</strong></div><div><span>Matricule : </span><strong>${d.eleve.matricule}</strong></div><div><span>Rang : </span><strong>${d.rang?d.rang+'e / '+d.total_cl:'—'}</strong></div></div>
+    <table class="bt"><thead><tr><th style="width:40%">Matière</th><th style="text-align:center;width:15%">Coeff.</th><th style="text-align:center;width:20%">Note /20</th><th style="text-align:center;width:25%">Pts pondérés</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="bsyn"><div><div class="bml">Moyenne générale</div><div class="bmv">${d.moy!==null?d.moy.toFixed(2)+' / 20':'— / 20'}</div></div><div style="text-align:center"><div class="bml">Rang</div><div class="bmv" style="font-size:16px">${d.rang?d.rang+'e / '+d.total_cl:'—'}</div></div><div>${d.moy!==null?`<span class="bmen">${men.l}</span>`:''}</div></div>
+    <div class="bapp"><strong>Appréciation : </strong>${appr}</div>
+    ${d.h_abs>0?`<div class="babs2">⚠️ Absences : ${d.h_abs}h au total, dont ${d.abs_ij} injustifiée(s).</div>`:''}
+    <div class="bsign"><div class="bsb"><div class="bsl">Prof. Principal</div><div class="bsline"></div><div class="bsnom">${d.classe.prof}</div></div><div class="bsb"><div class="bsl">Proviseur(e)</div><div class="bsline"></div><div class="bsnom">${d.cfg.proviseur}</div></div><div class="bsb"><div class="bsl">Signature Parent</div><div class="bsline"></div></div></div>
+  </div>`;
+}
+function printPortalBul(){const b=document.getElementById('pbul-doc');if(!b){toast('⚠️ Affichez d\'abord votre bulletin','error');return;}const w=window.open('','_blank');w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Bulletin</title><link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"><style>body{font-family:\'DM Sans\',sans-serif;font-size:13px;color:#111;padding:20px}.bsch{font-family:\'DM Serif Display\',serif;font-size:20px;color:#0a3d2e;font-weight:bold}.bsub{font-size:11px;color:#555;margin-top:3px}.be{text-align:center;border-bottom:3px solid #0a3d2e;padding-bottom:12px;margin-bottom:12px}.btit{font-size:13px;font-weight:700;margin-top:8px;letter-spacing:1px;text-transform:uppercase;color:#0a3d2e}.binf{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:#f8f8f8;padding:10px;border-radius:6px;margin-bottom:12px;font-size:12px}.bt{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:12px}.bt th{background:#0a3d2e;color:#fff;padding:6px 9px;text-align:left;font-size:11px}.bt td{padding:5px 9px;border-bottom:1px solid #eee}.bt tr:nth-child(even) td{background:#f9f9f9}.gh td{background:#e8f4ef;font-weight:600;color:#0a3d2e;font-size:11px;text-transform:uppercase}.nl{color:#c0392b;font-weight:700}.no{color:#27ae60;font-weight:600}.bsyn{background:#0a3d2e;color:#fff;border-radius:8px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.bmv{font-size:20px;font-weight:700}.bml{font-size:11px;opacity:.7}.bmen{font-size:12px;font-weight:600;background:rgba(255,255,255,.2);padding:3px 10px;border-radius:20px}.bapp{background:#fffbf0;border:1px solid #f0d59a;border-radius:6px;padding:8px 12px;font-size:11.5px;color:#555;margin-bottom:10px}.babs2{background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:8px 12px;font-size:11.5px;color:#991b1b;margin-bottom:10px}.bsign{display:flex;justify-content:space-between;margin-top:16px}.bsb{text-align:center}.bsl{font-size:11px;color:#555}.bsnom{font-size:11px;font-weight:600;color:#333}.bsline{border-top:1px solid #333;width:100px;margin:22px auto 4px}@media print{body{padding:10mm}}</style></head><body>'+b.outerHTML+'</body></html>');w.document.close();setTimeout(()=>w.print(),500);}
+
+async function pagePortalDemande(c){
+  c.innerHTML=`
+    <div style="background:var(--wh);border-radius:16px;border:1px solid var(--bdr);box-shadow:var(--sh);padding:22px;margin-bottom:16px">
+      <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--gd);margin-bottom:4px">Faire une demande</div>
+      <div style="font-size:12px;color:var(--inkl);margin-bottom:16px">Votre demande sera traitée par l'administration</div>
+      <div class="g2" style="gap:12px;margin-bottom:14px">
+        <div class="fg"><label>Type de demande *</label><select id="dem-type"><option value="absence">Autorisation d'absence</option><option value="sortie">Billet de sortie</option><option value="rattrapage">Rattrapage de devoir</option><option value="autre">Autre</option></select></div>
+        <div class="fg"><label>Date concernée *</label><input type="date" id="dem-date"></div>
+        <div class="fg" style="grid-column:1/-1"><label>Motif détaillé *</label><textarea id="dem-motif" rows="3" style="resize:vertical;width:100%;padding:10px 13px;border:1.5px solid var(--bdr);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none" placeholder="Expliquez votre demande…"></textarea></div>
+      </div>
+      <button class="btn btn-primary" onclick="submitDem()">📩 Soumettre la demande</button>
+    </div>
+    <div style="background:var(--wh);border-radius:16px;border:1px solid var(--bdr);box-shadow:var(--sh);padding:22px">
+      <div style="font-weight:600;margin-bottom:12px">Mes demandes précédentes</div>
+      <div id="mes-dem"><div class="es" style="padding:16px 0"><div class="es-i">📩</div><div>Aucune demande</div></div></div>
+    </div>`;
+  loadMesDem();
+}
+async function submitDem(){
+  const type=document.getElementById('dem-type').value;const date=document.getElementById('dem-date').value;const motif=document.getElementById('dem-motif').value.trim();
+  if(!date||!motif){toast('⚠️ Date et motif requis','error');return;}
+  await api('/api/demandes','POST',{type_demande:type,date_concernee:date,motif});
+  toast('✅ Demande envoyée à l\'administration !');document.getElementById('dem-motif').value='';loadMesDem();
+}
+async function loadMesDem(){
+  const eid=USER.eleve_id;if(!eid)return;
+  const all=await api('/api/demandes');const mes=all.filter(d=>true);
+  const c=document.getElementById('mes-dem');if(!c)return;
+  const tl={absence:"Autorisation d'absence",sortie:"Billet de sortie",rattrapage:"Rattrapage",autre:"Autre"};
+  const sc={attente:'var(--gold)',approuvee:'var(--gl)',refusee:'var(--red)'};
+  const sl={attente:'En attente ⏳',approuvee:'Approuvée ✅',refusee:'Refusée ❌'};
+  c.innerHTML=mes.length?mes.map(d=>`<div style="background:var(--surf);border:1px solid var(--bdr);border-radius:8px;padding:12px 14px;margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-weight:600;font-size:13px">${tl[d.type_demande]||d.type_demande}</span><span style="font-size:12px;font-weight:600;color:${sc[d.statut]}">${sl[d.statut]}</span></div>
+    <div style="font-size:12px;color:var(--inkm)">${d.motif}</div><div style="font-size:11px;color:var(--inkl);margin-top:4px">${d.created_at}</div>
+  </div>`).join(''):'<div class="es" style="padding:16px 0"><div class="es-i">📩</div><div>Aucune demande envoyée</div></div>';
+}
+</script>
+{% endblock %}
